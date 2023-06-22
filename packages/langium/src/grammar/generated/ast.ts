@@ -40,10 +40,10 @@ export function isCondition(item: unknown): item is Condition {
     return reflection.isInstance(item, Condition);
 }
 
-export type FeatureName = 'current' | 'entry' | 'extends' | 'false' | 'fragment' | 'grammar' | 'hidden' | 'import' | 'infer' | 'infers' | 'interface' | 'returns' | 'terminal' | 'true' | 'type' | 'with' | PrimitiveType | string;
+export type FeatureName = 'current' | 'entry' | 'extends' | 'false' | 'fragment' | 'grammar' | 'hidden' | 'import' | 'infer' | 'infers' | 'interface' | 'on' | 'operator' | 'returns' | 'terminal' | 'true' | 'type' | 'with' | PrimitiveType | string;
 
 export function isFeatureName(item: unknown): item is FeatureName {
-    return isPrimitiveType(item) || item === 'current' || item === 'entry' || item === 'extends' || item === 'false' || item === 'fragment' || item === 'grammar' || item === 'hidden' || item === 'import' || item === 'interface' || item === 'returns' || item === 'terminal' || item === 'true' || item === 'type' || item === 'infer' || item === 'infers' || item === 'with' || (typeof item === 'string' && (/\^?[_a-zA-Z][\w_]*/.test(item)));
+    return isPrimitiveType(item) || item === 'current' || item === 'entry' || item === 'extends' || item === 'false' || item === 'fragment' || item === 'grammar' || item === 'hidden' || item === 'import' || item === 'interface' || item === 'on' || item === 'operator' || item === 'returns' || item === 'terminal' || item === 'true' || item === 'type' || item === 'infer' || item === 'infers' || item === 'with' || (typeof item === 'string' && (/\^?[_a-zA-Z][\w_]*/.test(item)));
 }
 
 export type PrimitiveType = 'Date' | 'bigint' | 'boolean' | 'number' | 'string';
@@ -84,6 +84,20 @@ export function isArrayType(item: unknown): item is ArrayType {
     return reflection.isInstance(item, ArrayType);
 }
 
+export interface BinaryOperator extends AstNode {
+    readonly $container: Grammar;
+    readonly $type: 'BinaryOperator';
+    name: string
+    precedenceGroups: Array<PrecedenceGroup>
+    primary: Reference<AbstractRule>
+}
+
+export const BinaryOperator = 'BinaryOperator';
+
+export function isBinaryOperator(item: unknown): item is BinaryOperator {
+    return reflection.isInstance(item, BinaryOperator);
+}
+
 export interface Conjunction extends AstNode {
     readonly $container: Conjunction | Disjunction | Group | NamedArgument | Negation;
     readonly $type: 'Conjunction';
@@ -112,6 +126,7 @@ export function isDisjunction(item: unknown): item is Disjunction {
 
 export interface Grammar extends AstNode {
     readonly $type: 'Grammar';
+    binaryOperator?: BinaryOperator
     definesHiddenTokens: boolean
     hiddenTokens: Array<Reference<AbstractRule>>
     imports: Array<GrammarImport>
@@ -249,6 +264,19 @@ export const ParserRule = 'ParserRule';
 
 export function isParserRule(item: unknown): item is ParserRule {
     return reflection.isInstance(item, ParserRule);
+}
+
+export interface PrecedenceGroup extends AstNode {
+    readonly $container: BinaryOperator;
+    readonly $type: 'PrecedenceGroup';
+    assoc: '->' | '<-' | '<>'
+    operators: Array<string>
+}
+
+export const PrecedenceGroup = 'PrecedenceGroup';
+
+export function isPrecedenceGroup(item: unknown): item is PrecedenceGroup {
+    return reflection.isInstance(item, PrecedenceGroup);
 }
 
 export interface ReferenceType extends AstNode {
@@ -538,6 +566,7 @@ export type LangiumGrammarAstType = {
     Alternatives: Alternatives
     ArrayType: ArrayType
     Assignment: Assignment
+    BinaryOperator: BinaryOperator
     CharacterRange: CharacterRange
     Condition: Condition
     Conjunction: Conjunction
@@ -556,6 +585,7 @@ export type LangiumGrammarAstType = {
     Parameter: Parameter
     ParameterReference: ParameterReference
     ParserRule: ParserRule
+    PrecedenceGroup: PrecedenceGroup
     ReferenceType: ReferenceType
     RegexToken: RegexToken
     ReturnType: ReturnType
@@ -577,7 +607,7 @@ export type LangiumGrammarAstType = {
 export class LangiumGrammarAstReflection extends AbstractAstReflection {
 
     getAllTypes(): string[] {
-        return ['AbstractElement', 'AbstractRule', 'AbstractType', 'Action', 'Alternatives', 'ArrayType', 'Assignment', 'CharacterRange', 'Condition', 'Conjunction', 'CrossReference', 'Disjunction', 'Grammar', 'GrammarImport', 'Group', 'InferredType', 'Interface', 'Keyword', 'LiteralCondition', 'NamedArgument', 'NegatedToken', 'Negation', 'Parameter', 'ParameterReference', 'ParserRule', 'ReferenceType', 'RegexToken', 'ReturnType', 'RuleCall', 'SimpleType', 'TerminalAlternatives', 'TerminalGroup', 'TerminalRule', 'TerminalRuleCall', 'Type', 'TypeAttribute', 'TypeDefinition', 'UnionType', 'UnorderedGroup', 'UntilToken', 'Wildcard'];
+        return ['AbstractElement', 'AbstractRule', 'AbstractType', 'Action', 'Alternatives', 'ArrayType', 'Assignment', 'BinaryOperator', 'CharacterRange', 'Condition', 'Conjunction', 'CrossReference', 'Disjunction', 'Grammar', 'GrammarImport', 'Group', 'InferredType', 'Interface', 'Keyword', 'LiteralCondition', 'NamedArgument', 'NegatedToken', 'Negation', 'Parameter', 'ParameterReference', 'ParserRule', 'PrecedenceGroup', 'ReferenceType', 'RegexToken', 'ReturnType', 'RuleCall', 'SimpleType', 'TerminalAlternatives', 'TerminalGroup', 'TerminalRule', 'TerminalRuleCall', 'Type', 'TypeAttribute', 'TypeDefinition', 'UnionType', 'UnorderedGroup', 'UntilToken', 'Wildcard'];
     }
 
     protected override computeIsSubtype(subtype: string, supertype: string): boolean {
@@ -641,6 +671,7 @@ export class LangiumGrammarAstReflection extends AbstractAstReflection {
             case 'SimpleType:typeRef': {
                 return AbstractType;
             }
+            case 'BinaryOperator:primary':
             case 'Grammar:hiddenTokens':
             case 'ParserRule:hiddenTokens':
             case 'RuleCall:rule': {
@@ -664,6 +695,14 @@ export class LangiumGrammarAstReflection extends AbstractAstReflection {
 
     getTypeMetaData(type: string): TypeMetaData {
         switch (type) {
+            case 'BinaryOperator': {
+                return {
+                    name: 'BinaryOperator',
+                    mandatory: [
+                        { name: 'precedenceGroups', type: 'array' }
+                    ]
+                };
+            }
             case 'Grammar': {
                 return {
                     name: 'Grammar',
@@ -714,6 +753,14 @@ export class LangiumGrammarAstReflection extends AbstractAstReflection {
                         { name: 'hiddenTokens', type: 'array' },
                         { name: 'parameters', type: 'array' },
                         { name: 'wildcard', type: 'boolean' }
+                    ]
+                };
+            }
+            case 'PrecedenceGroup': {
+                return {
+                    name: 'PrecedenceGroup',
+                    mandatory: [
+                        { name: 'operators', type: 'array' }
                     ]
                 };
             }

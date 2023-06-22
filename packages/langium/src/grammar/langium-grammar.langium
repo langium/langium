@@ -11,7 +11,14 @@ entry Grammar:
         (definesHiddenTokens?='hidden' '(' (hiddenTokens+=[AbstractRule:ID] (',' hiddenTokens+=[AbstractRule:ID])*)? ')')?
     )?
     imports+=GrammarImport*
-    (rules+=AbstractRule | interfaces+=Interface | types+=Type)+;
+    (binaryOperator=BinaryOperator | rules+=AbstractRule | interfaces+=Interface | types+=Type)+;
+
+BinaryOperator:
+    'operator' name=ID 'on' primary=[AbstractRule] ':'
+    precedenceGroups+=PrecedenceGroup (',' precedenceGroups+=PrecedenceGroup)* ';';
+
+PrecedenceGroup:
+    assoc=('<-' | '->' | '<>') operators+=STRING ('|' operators+=STRING)*;
 
 Interface:
     'interface' name=ID
@@ -204,7 +211,7 @@ CharacterRange infers AbstractElement:
     {infer CharacterRange} left=Keyword ('..' right=Keyword)?;
 
 FeatureName returns string:
-    'current' | 'entry' | 'extends' | 'false' | 'fragment' | 'grammar' | 'hidden' | 'import' | 'interface' | 'returns' | 'terminal' | 'true' | 'type' | 'infer' | 'infers' | 'with' | PrimitiveType | ID;
+    'current' | 'entry' | 'extends' | 'false' | 'fragment' | 'grammar' | 'hidden' | 'import' | 'interface' | 'on' | 'operator' | 'returns' | 'terminal' | 'true' | 'type' | 'infer' | 'infers' | 'with' | PrimitiveType | ID;
 
 terminal ID: /\^?[_a-zA-Z][\w_]*/;
 terminal STRING: /"(\\.|[^"\\])*"|'(\\.|[^'\\])*'/;
