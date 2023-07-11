@@ -68,13 +68,22 @@ export function getAllReachableRules(grammar: ast.Grammar, allTerminals: boolean
 }
 
 function ruleDfs(rule: ast.AbstractRule, visitedSet: Set<string>, allTerminals: boolean): void {
+    function addAndVisit(refRule: ast.AbstractRule | undefined): void {
+        if (refRule && !visitedSet.has(refRule.name)) {
+            ruleDfs(refRule, visitedSet, allTerminals);
+        }
+    }
+
     visitedSet.add(rule.name);
+
+    if (ast.isBinaryOperator(rule)) {
+        addAndVisit(rule.primary.ref);
+        return;
+    }
+
     streamAllContents(rule).forEach(node => {
         if (ast.isRuleCall(node) || (allTerminals && ast.isTerminalRuleCall(node))) {
-            const refRule = node.rule.ref;
-            if (refRule && !visitedSet.has(refRule.name)) {
-                ruleDfs(refRule, visitedSet, allTerminals);
-            }
+            addAndVisit(node.rule.ref);
         }
     });
 }

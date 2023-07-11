@@ -48,7 +48,9 @@ function isDataTypeRuleInternal(rule: ast.ParserRule, visited: Set<ast.ParserRul
                 // RuleCall to unresolved rule. Don't assume `rule` is a DataType rule.
                 return false;
             }
-            if (ast.isParserRule(node.rule.ref) && !isDataTypeRuleInternal(node.rule.ref, visited)) {
+            if (ast.isParserRule(node.rule.ref) && !isDataTypeRuleInternal(node.rule.ref, visited)
+                || ast.isBinaryOperator(node.rule.ref)) {
+
                 return false;
             }
         } else if (ast.isAssignment(node)) {
@@ -220,6 +222,8 @@ export function getActionType(action: ast.Action): string | undefined {
 export function getRuleType(rule: ast.AbstractRule): string {
     if (ast.isTerminalRule(rule)) {
         return rule.type?.name ?? 'string';
+    } else if (ast.isBinaryOperator(rule)) {
+        return rule.name;
     } else {
         return isDataTypeRule(rule) ? rule.name : getExplicitRuleType(rule) ?? rule.name;
     }
@@ -416,7 +420,7 @@ export function extractAssignments(element: ast.AbstractElement): ast.Assignment
         return [element];
     } else if (ast.isAlternatives(element) || ast.isGroup(element) || ast.isUnorderedGroup(element)) {
         return element.elements.flatMap(e => extractAssignments(e));
-    } else if (ast.isRuleCall(element) && element.rule.ref) {
+    } else if (ast.isRuleCall(element) && element.rule.ref && !ast.isBinaryOperator(element.rule.ref)) {
         return extractAssignments(element.rule.ref.definition);
     }
     return [];

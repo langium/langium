@@ -16,7 +16,7 @@ export const LangiumGrammarTerminals = {
     SL_COMMENT: /\/\/[^\n\r]*/,
 };
 
-export type AbstractRule = ParserRule | TerminalRule;
+export type AbstractRule = BinaryOperator | ParserRule | TerminalRule;
 
 export const AbstractRule = 'AbstractRule';
 
@@ -24,7 +24,7 @@ export function isAbstractRule(item: unknown): item is AbstractRule {
     return reflection.isInstance(item, AbstractRule);
 }
 
-export type AbstractType = Action | Interface | ParserRule | Type;
+export type AbstractType = Action | BinaryOperator | Interface | ParserRule | Type;
 
 export const AbstractType = 'AbstractType';
 
@@ -126,7 +126,6 @@ export function isDisjunction(item: unknown): item is Disjunction {
 
 export interface Grammar extends AstNode {
     readonly $type: 'Grammar';
-    binaryOperator?: BinaryOperator
     definesHiddenTokens: boolean
     hiddenTokens: Array<Reference<AbstractRule>>
     imports: Array<GrammarImport>
@@ -638,6 +637,10 @@ export class LangiumGrammarAstReflection extends AbstractAstReflection {
             case UnionType: {
                 return this.isSubtype(TypeDefinition, supertype);
             }
+            case BinaryOperator:
+            case ParserRule: {
+                return this.isSubtype(AbstractRule, supertype) || this.isSubtype(AbstractType, supertype);
+            }
             case Conjunction:
             case Disjunction:
             case LiteralCondition:
@@ -648,9 +651,6 @@ export class LangiumGrammarAstReflection extends AbstractAstReflection {
             case Interface:
             case Type: {
                 return this.isSubtype(AbstractType, supertype);
-            }
-            case ParserRule: {
-                return this.isSubtype(AbstractRule, supertype) || this.isSubtype(AbstractType, supertype);
             }
             case TerminalRule: {
                 return this.isSubtype(AbstractRule, supertype);

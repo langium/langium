@@ -290,6 +290,10 @@ function ruleMatches(rule: ast.AbstractRule | undefined, token: IToken): boolean
     if (ast.isParserRule(rule)) {
         const ruleFeatures = findFirstFeatures(rule.definition);
         return ruleFeatures.some(e => featureMatches(e.feature, token));
+    } else if (ast.isBinaryOperator(rule)) {
+        return rule.primary.ref ?
+            ruleMatches(rule.primary.ref, token) :
+            false;
     } else if (ast.isTerminalRule(rule)) {
         // We have to take keywords into account
         // e.g. most keywords are valid IDs as well

@@ -8,7 +8,7 @@ import type { CustomPatternMatcherFunc, TokenPattern, TokenType, TokenVocabulary
 import type { AbstractRule, Grammar, Keyword, TerminalRule } from '../grammar/generated/ast';
 import type { Stream } from '../utils/stream';
 import { Lexer } from 'chevrotain';
-import { isKeyword, isParserRule, isTerminalRule } from '../grammar/generated/ast';
+import { isBinaryOperator, isKeyword, isParserRule, isTerminalRule } from '../grammar/generated/ast';
 import { terminalRegex } from '../grammar/internal-grammar-util';
 import { streamAllContents } from '../utils/ast-util';
 import { getAllReachableRules } from '../utils/grammar-util';
@@ -73,7 +73,7 @@ export class DefaultTokenBuilder implements TokenBuilder {
     protected buildKeywordTokens(rules: Stream<AbstractRule>, terminalTokens: TokenType[], options?: TokenBuilderOptions): TokenType[] {
         return rules
             // We filter by parser rules, since keywords in terminal rules get transformed into regex and are not actual tokens
-            .filter(isParserRule)
+            .filter(e => isParserRule(e) || isBinaryOperator(e))
             .flatMap(rule => streamAllContents(rule).filter(isKeyword))
             .distinct(e => e.value).toArray()
             // Sort keywords by descending length

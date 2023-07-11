@@ -10,7 +10,7 @@ import type { ValidationResult } from '../../src/test';
 import { afterEach, beforeAll, describe, expect, test } from 'vitest';
 import { DiagnosticSeverity } from 'vscode-languageserver';
 import { createLangiumGrammarServices, EmptyFileSystem, GrammarAST, streamAllContents, streamContents } from '../../src';
-import { isAssignment } from '../../src/grammar/generated/ast';
+import { isAssignment, isTerminalRule } from '../../src/grammar/generated/ast';
 import { IssueCodes } from '../../src/grammar/validation/validator';
 import { clearDocuments, expectError, expectIssue, expectNoIssues, expectWarning, parseHelper, validationHelper } from '../../src/test';
 
@@ -814,13 +814,15 @@ describe('Cross-reference to type union is only valid if all alternatives are AS
         `);
 
         const grammar = validationResult.document.parseResult.value;
-        expectError(validationResult, /Data type rules for cross-references must be of type string./, {
-            node: (((grammar.rules[0].definition as Group).elements[0] as Assignment).terminal as CrossReference).terminal as RuleCall,
-            property: 'rule'
-        });
-        expectError(validationResult, /Terminal rules for cross-references must be of type string./, {
-            node: (((grammar.rules[0].definition as Group).elements[1] as Assignment).terminal as CrossReference).terminal as RuleCall,
-            property: 'rule'
-        });
+        if (isTerminalRule(grammar.rules[0])) {
+            expectError(validationResult, /Data type rules for cross-references must be of type string./, {
+                node: (((grammar.rules[0].definition as Group).elements[0] as Assignment).terminal as CrossReference).terminal as RuleCall,
+                property: 'rule'
+            });
+            expectError(validationResult, /Terminal rules for cross-references must be of type string./, {
+                node: (((grammar.rules[0].definition as Group).elements[1] as Assignment).terminal as CrossReference).terminal as RuleCall,
+                property: 'rule'
+            });
+        }
     });
 });

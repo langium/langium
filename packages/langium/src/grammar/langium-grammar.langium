@@ -11,7 +11,7 @@ entry Grammar:
         (definesHiddenTokens?='hidden' '(' (hiddenTokens+=[AbstractRule:ID] (',' hiddenTokens+=[AbstractRule:ID])*)? ')')?
     )?
     imports+=GrammarImport*
-    (binaryOperator=BinaryOperator | rules+=AbstractRule | interfaces+=Interface | types+=Type)+;
+    (rules+=AbstractRule | interfaces+=Interface | types+=Type)+;
 
 BinaryOperator:
     'operator' name=ID 'on' primary=[AbstractRule] ':'
@@ -50,13 +50,13 @@ SimpleType infers TypeDefinition:
 PrimitiveType returns string:
     'string' | 'number' | 'boolean' | 'Date' | 'bigint';
 
-type AbstractType = Interface | Type | Action | ParserRule;
+type AbstractType = Interface | Type | Action | ParserRule | BinaryOperator;
 
 Type:
     'type' name=ID '=' type=TypeDefinition ';'?;
 
 AbstractRule:
-    ParserRule | TerminalRule;
+    ParserRule | TerminalRule | BinaryOperator;
 
 GrammarImport:
     'import' path=STRING ';'?;

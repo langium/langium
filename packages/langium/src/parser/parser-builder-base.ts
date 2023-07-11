@@ -10,7 +10,7 @@ import type { BaseParser } from './langium-parser';
 import type { AstNode } from '../syntax-tree';
 import type { Cardinality } from '../grammar/internal-grammar-util';
 import { EMPTY_ALT } from 'chevrotain';
-import { isAction, isAlternatives, isAssignment, isConjunction, isCrossReference, isDisjunction, isGroup, isKeyword, isLiteralCondition, isNegation, isParameterReference, isParserRule, isRuleCall, isTerminalRule, isUnorderedGroup } from '../grammar/generated/ast';
+import { isAction, isAlternatives, isAssignment, isBinaryOperator, isConjunction, isCrossReference, isDisjunction, isGroup, isKeyword, isLiteralCondition, isNegation, isParameterReference, isParserRule, isRuleCall, isTerminalRule, isUnorderedGroup } from '../grammar/generated/ast';
 import { assertUnreachable, ErrorWithLocation } from '../utils/errors';
 import { stream } from '../utils/stream';
 import { getTypeName } from '../grammar/internal-grammar-util';
@@ -109,6 +109,9 @@ function buildRuleCall(ctx: RuleContext, ruleCall: RuleCall): Method {
         const idx = ctx.consume++;
         const method = getToken(ctx, rule.name);
         return () => ctx.parser.consume(idx, method, ruleCall);
+    } else if (isBinaryOperator(rule)) {
+        const idx = ctx.subrule++;
+        return () => ctx.parser.subrule(idx, () => { console.log('TODO: binary operator'); }, ruleCall, {});
     } else if (!rule) {
         throw new ErrorWithLocation(ruleCall.$cstNode, `Undefined rule type: ${ruleCall.$type}`);
     } else {
