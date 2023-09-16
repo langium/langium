@@ -4,7 +4,7 @@
  * terms of the MIT License, which is available in the project root.
  ******************************************************************************/
 
-import type { Grammar, LangiumCoreServices, Reference } from 'langium';
+import type { Grammar, LangiumCoreServices } from 'langium';
 import { expandToNode, joinToNode, normalizeEOL, toString } from 'langium/generate';
 import type { URI } from 'vscode-uri';
 import type { LangiumConfig } from '../package-types.js';
@@ -30,9 +30,9 @@ export function serializeGrammar(services: LangiumCoreServices, grammars: Gramma
             grammar => {
                 const production = config.mode === 'production';
                 const delimiter = production ? "'" : '`';
-                const uriConverter = (uri: URI, ref: Reference) => {
+                const uriConverter = (uri: URI) => {
                     // We expect the grammar to be self-contained after the transformations we've done before
-                    throw new Error(`Unexpected reference to symbol '${ref.$refText}' in document: ${uri.toString()}`);
+                    throw new Error(`Unexpected reference to element in document: ${uri.toString()}`);
                 };
                 const serializedGrammar = services.serializer.JsonSerializer.serialize(grammar, {
                     space: production ? undefined : 2,

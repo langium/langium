@@ -5,7 +5,7 @@
  ******************************************************************************/
 
 import type { LangiumCoreServices } from '../services.js';
-import type { AstNode, AstNodeDescription, AstReflection, CstNode, LinkingError, Reference, ReferenceInfo } from '../syntax-tree.js';
+import type { AstNode, AstNodeDescription, AstReflection, CstNode, LinkingError, MultiReference, MultiReferenceItem, Reference, ReferenceInfo } from '../syntax-tree.js';
 import type { AstNodeLocator } from '../workspace/ast-node-locator.js';
 import type { LangiumDocument, LangiumDocuments } from '../workspace/documents.js';
 import type { ScopeProvider } from './scope-provider.js';
@@ -47,6 +47,15 @@ export interface Linker {
     getCandidate(refInfo: ReferenceInfo): AstNodeDescription | LinkingError;
 
     /**
+     * Determines a candidate AST node description for linking the given reference.
+     *
+     * @param node The AST node containing the reference.
+     * @param refId The reference identifier used to build a scope.
+     * @param reference The actual reference to resolve.
+     */
+    getCandidates(refInfo: ReferenceInfo): AstNodeDescription[] | LinkingError;
+
+    /**
      * Creates a cross reference node being aware of its containing AstNode, the corresponding CstNode,
      * the cross reference text denoting the target AstNode being already extracted of the document text,
      * as well as the unique cross reference identifier.
@@ -65,11 +74,18 @@ export interface Linker {
      */
     buildReference(node: AstNode, property: string, refNode: CstNode | undefined, refText: string): Reference;
 
+    buildMultiReference(node: AstNode, property: string, refNode: CstNode | undefined, refText: string): MultiReference;
+
 }
 
-interface DefaultReference extends Reference {
-    _ref?: AstNode | LinkingError;
+export interface DefaultReference extends Reference {
+    _ref: AstNode | LinkingError | undefined;
     _nodeDescription?: AstNodeDescription;
+}
+
+export interface DefaultMultiReference extends MultiReference {
+    _items: MultiReferenceItem[];
+    _linkingError?: LinkingError;
 }
 
 export class DefaultLinker implements Linker {
@@ -93,27 +109,46 @@ export class DefaultLinker implements Linker {
     }
 
     protected doLink(refInfo: ReferenceInfo, document: LangiumDocument): void {
-        const ref = refInfo.reference as DefaultReference;
+        const ref = refInfo.reference as DefaultReference | DefaultMultiReference;
         // The reference may already have been resolved lazily by accessing its `ref` property.
-        if (ref._ref === undefined) {
+        if ('_ref' in ref && ref._ref === undefined) {
             try {
                 const description = this.getCandidate(refInfo);
                 if (isLinkingError(description)) {
                     ref._ref = description;
                 } else {
                     ref._nodeDescription = description;
-                    if (this.langiumDocuments().hasDocument(description.documentUri)) {
-                        // The target document is already loaded
-                        const linkedNode = this.loadAstNode(description);
-                        ref._ref = linkedNode ?? this.createLinkingError(refInfo, description);
-                    }
+                    const linkedNode = this.loadAstNode(description);
+                    ref._ref = linkedNode ?? this.createLinkingError(refInfo, description);
                 }
             } catch (err) {
                 ref._ref = {
-                    ...refInfo,
+                    info: refInfo,
                     message: `An error occurred while resolving reference to '${ref.$refText}': ${err}`
                 };
             }
+        } else if ('_items' in ref && ref._items.length === 0 && !ref._linkingError) {
+            try {
+                const descriptions = this.getCandidates(refInfo);
+                if (isLinkingError(descriptions)) {
+                    ref._linkingError = descriptions;
+                } else {
+                    const items: MultiReferenceItem[] = [];
+                    for (const description of descriptions) {
+                        const linkedNode = this.loadAstNode(description);
+                        if (linkedNode) {
+                            items.push({ ref: linkedNode, $nodeDescription: description });
+                        }
+                    }
+                    ref._items = items;
+                }
+            } catch (err) {
+                ref._linkingError = {
+                    info: refInfo,
+                    message: `An error occurred while resolving reference to '${ref.$refText}': ${err}`
+                };
+            }
+
         }
         // Add the reference to the document's array of references
         document.references.push(ref);
@@ -121,8 +156,13 @@ export class DefaultLinker implements Linker {
 
     unlink(document: LangiumDocument): void {
         for (const ref of document.references) {
-            delete (ref as DefaultReference)._ref;
-            delete (ref as DefaultReference)._nodeDescription;
+            if ('_ref' in ref) {
+                (ref as DefaultReference)._ref = undefined;
+                delete (ref as DefaultReference)._nodeDescription;
+            } else if ('_items' in ref) {
+                (ref as DefaultMultiReference)._items = [];
+                delete (ref as DefaultMultiReference)._linkingError;
+            }
         }
         document.references = [];
     }
@@ -133,6 +173,12 @@ export class DefaultLinker implements Linker {
         return description ?? this.createLinkingError(refInfo);
     }
 
+    getCandidates(refInfo: ReferenceInfo): AstNodeDescription[] | LinkingError {
+        const scope = this.scopeProvider.getScope(refInfo);
+        const descriptions = scope.getElements(refInfo.reference.$refText).distinct(desc => `${desc.documentUri}#${desc.path}`).toArray();
+        return descriptions.length > 0 ? descriptions : this.createLinkingError(refInfo);
+    }
+
     buildReference(node: AstNode, property: string, refNode: CstNode | undefined, refText: string): Reference {
         // See behavior description in doc of Linker, update that on changes in here.
         // eslint-disable-next-line @typescript-eslint/no-this-alias
@@ -140,6 +186,7 @@ export class DefaultLinker implements Linker {
         const reference: DefaultReference = {
             $refNode: refNode,
             $refText: refText,
+            _ref: undefined,
 
             get ref() {
                 if (isAstNode(this._ref)) {
@@ -172,6 +219,33 @@ export class DefaultLinker implements Linker {
         return reference;
     }
 
+    buildMultiReference(node: AstNode, property: string, refNode: CstNode | undefined, refText: string): MultiReference {
+        // See behavior description in doc of Linker, update that on changes in here.
+        // eslint-disable-next-line @typescript-eslint/no-this-alias
+        const linker = this;
+        const reference: DefaultMultiReference = {
+            $refNode: refNode,
+            $refText: refText,
+            _items: [],
+
+            get items() {
+                return this._items;
+            },
+            get error() {
+                if (this._linkingError) {
+                    return this._linkingError;
+                }
+                const refs = this.items;
+                if (refs.length > 0) {
+                    return undefined;
+                } else {
+                    return (this._linkingError = linker.createLinkingError({ reference, container: node, property }));
+                }
+            }
+        };
+        return reference;
+    }
+
     protected getLinkedNode(refInfo: ReferenceInfo): { node?: AstNode, descr?: AstNodeDescription, error?: LinkingError } {
         try {
             const description = this.getCandidate(refInfo);
@@ -192,7 +266,7 @@ export class DefaultLinker implements Linker {
         } catch (err) {
             return {
                 error: {
-                    ...refInfo,
+                    info: refInfo,
                     message: `An error occurred while resolving reference to '${refInfo.reference.$refText}': ${err}`
                 }
             };
@@ -219,7 +293,7 @@ export class DefaultLinker implements Linker {
         }
         const referenceType = this.reflection.getReferenceType(refInfo);
         return {
-            ...refInfo,
+            info: refInfo,
             message: `Could not resolve reference to ${referenceType} named '${refInfo.reference.$refText}'.`,
             targetDescription
         };

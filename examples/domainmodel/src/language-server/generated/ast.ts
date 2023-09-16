@@ -4,7 +4,7 @@
  ******************************************************************************/
 
 /* eslint-disable */
-import type { AstNode, Reference, ReferenceInfo, TypeMetaData } from 'langium';
+import type { AstNode, Reference, MultiReference, ReferenceInfo, TypeMetaData } from 'langium';
 import { AbstractAstReflection } from 'langium';
 
 export const DomainModelTerminals = {
@@ -64,7 +64,7 @@ export interface Entity extends AstNode {
     readonly $type: 'Entity';
     features: Array<Feature>;
     name: string;
-    superType?: Reference<Entity>;
+    superType?: MultiReference<Entity>;
 }
 
 export const Entity = 'Entity';
