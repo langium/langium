@@ -4,12 +4,12 @@
  * terms of the MIT License, which is available in the project root.
  ******************************************************************************/
 
-import type { ParserRule, Action, AbstractElement, Assignment, RuleCall } from '../../generated/ast';
-import type { PlainAstTypes, PlainInterface, PlainProperty, PlainPropertyType, PlainUnion } from './plain-types';
+import type { ParserRule, Action, AbstractElement, Assignment, RuleCall, BinaryOperator } from '../../generated/ast';
+import type { PlainAstTypes, PlainInterface, PlainProperty, PlainPropertyType, PlainStringType, PlainUnion } from './plain-types';
 import { isNamed } from '../../../references/name-provider';
 import { MultiMap } from '../../../utils/collections';
-import { isAlternatives, isKeyword, isParserRule, isAction, isGroup, isUnorderedGroup, isAssignment, isRuleCall, isCrossReference, isTerminalRule } from '../../generated/ast';
-import { getTypeNameWithoutError, isOptionalCardinality, getRuleType, isPrimitiveType, terminalRegex } from '../../internal-grammar-util';
+import { isAlternatives, isKeyword, isParserRule, isAction, isGroup, isUnorderedGroup, isAssignment, isRuleCall, isCrossReference, isTerminalRule, isBinaryOperator } from '../../generated/ast';
+import { getTypeNameWithoutError, isOptionalCardinality, getRuleType, isPrimitiveType, terminalRegex, getTypeName } from '../../internal-grammar-util';
 import { mergePropertyTypes } from './plain-types';
 
 interface TypePart {
@@ -212,7 +212,7 @@ function copyProperty(value: PlainProperty): PlainProperty {
     };
 }
 
-export function collectInferredTypes(parserRules: ParserRule[], datatypeRules: ParserRule[], declared: PlainAstTypes): PlainAstTypes {
+export function collectInferredTypes(parserRules: ParserRule[], datatypeRules: ParserRule[], binaryOperators: BinaryOperator[], declared: PlainAstTypes): PlainAstTypes {
     // extract interfaces and types from parser rules
     const allTypes: TypePath[] = [];
     const context: TypeCollectionContext = {
@@ -221,7 +221,40 @@ export function collectInferredTypes(parserRules: ParserRule[], datatypeRules: P
     for (const rule of parserRules) {
         allTypes.push(...getRuleTypes(context, rule));
     }
+    for (const binaryOperator of binaryOperators) {
+        allTypes.push(...getBinaryOperatorType(context, binaryOperator));
+    }
     const interfaces = calculateInterfaces(allTypes);
+
+    // extract types from binary operators
+    for (const binOp of binaryOperators) {
+        if (binOp.primary.ref && isParserRule(binOp.primary.ref)) {
+            const operandProp = {
+                optional: false,
+                astNodes: new Set(),
+                type: { value: getTypeName(binOp.primary.ref) }
+            };
+
+            const binOpOperators: PlainStringType[] = [];
+            for (const group of binOp.precedenceGroups) {
+                binOpOperators.push(...group.operators.map(op => { return { string: op }; }));
+            }
+
+            interfaces.push({
+                name: binOp.name,
+                superTypes: new Set(),
+                subTypes: new Set(),
+                properties: [
+                    <PlainProperty>{...operandProp, name: 'left'  },
+                    <PlainProperty>{...operandProp, name: 'right' },
+                    { name: 'operator', optional: false, astNodes: new Set(), type: { types: binOpOperators }},
+                ],
+                declared: true,
+                abstract: false,
+            });
+        }
+    }
+
     const unions = buildSuperUnions(interfaces);
     const astTypes = extractUnions(interfaces, unions, declared);
 
@@ -309,6 +342,11 @@ function getRuleTypes(context: TypeCollectionContext, rule: ParserRule): TypePat
         collectElement(graph, graph.root, rule.definition);
     }
     return graph.getTypes();
+}
+
+function getBinaryOperatorType(context: TypeCollectionContext, binaryOperator: BinaryOperator): TypePath[] {
+    context; binaryOperator;
+    return [];
 }
 
 function newTypePart(element?: ParserRule | Action | string): TypePart {
@@ -452,6 +490,8 @@ function addRuleCall(graph: TypeGraph, current: TypePart, ruleCall: RuleCall): v
             current.properties.push(...properties);
         }
     } else if (isParserRule(rule)) {
+        current.ruleCalls.push(getRuleType(rule));
+    } else if (isBinaryOperator(rule)) {
         current.ruleCalls.push(getRuleType(rule));
     }
 }

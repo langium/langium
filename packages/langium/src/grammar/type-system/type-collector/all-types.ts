@@ -4,7 +4,7 @@
  * terms of the MIT License, which is available in the project root.
  ******************************************************************************/
 
-import type { ParserRule, Interface, Type, Grammar } from '../../generated/ast';
+import type { ParserRule, Interface, Type, Grammar, BinaryOperator } from '../../generated/ast';
 import type { URI } from 'vscode-uri';
 import type { LangiumDocuments } from '../../../workspace/documents';
 import type { PlainAstTypes } from './plain-types';
@@ -12,12 +12,13 @@ import type { AstTypes } from './types';
 import { collectInferredTypes } from './inferred-types';
 import { collectDeclaredTypes } from './declared-types';
 import { getDocument } from '../../../utils/ast-util';
-import { isParserRule } from '../../generated/ast';
+import { isBinaryOperator, isParserRule } from '../../generated/ast';
 import { isDataTypeRule, resolveImport } from '../../internal-grammar-util';
 
 export type AstResources = {
     parserRules: ParserRule[],
     datatypeRules: ParserRule[],
+    binaryOperators: BinaryOperator[],
     interfaces: Interface[],
     types: Type[],
 }
@@ -37,7 +38,7 @@ export interface ValidationAstTypes {
 export function collectTypeResources(grammars: Grammar | Grammar[], documents?: LangiumDocuments): TypeResources {
     const astResources = collectAllAstResources(grammars, documents);
     const declared = collectDeclaredTypes(astResources.interfaces, astResources.types);
-    const inferred = collectInferredTypes(astResources.parserRules, astResources.datatypeRules, declared);
+    const inferred = collectInferredTypes(astResources.parserRules, astResources.datatypeRules, astResources.binaryOperators, declared);
 
     return {
         astResources,
@@ -49,7 +50,7 @@ export function collectTypeResources(grammars: Grammar | Grammar[], documents?: 
 ///////////////////////////////////////////////////////////////////////////////
 
 export function collectAllAstResources(grammars: Grammar | Grammar[], documents?: LangiumDocuments, visited: Set<URI> = new Set(),
-    astResources: AstResources = { parserRules: [], datatypeRules: [], interfaces: [], types: [] }): AstResources {
+    astResources: AstResources = { parserRules: [], datatypeRules: [], binaryOperators: [], interfaces: [], types: [] }): AstResources {
 
     if (!Array.isArray(grammars)) grammars = [grammars];
     for (const grammar of grammars) {
@@ -65,6 +66,8 @@ export function collectAllAstResources(grammars: Grammar | Grammar[], documents?
                 } else {
                     astResources.parserRules.push(rule);
                 }
+            } else if (isBinaryOperator(rule)) {
+                astResources.binaryOperators.push(rule);
             }
         }
         grammar.interfaces.forEach(e => astResources.interfaces.push(e));
