@@ -38,15 +38,6 @@ export const generateAction = async (fileName: string, opts: GenerateOptions): P
         } else {
             console.log(chalk.red('LLVM IR code generation failed!'));
         }
-    } else if (opts.target === 'py') {
-        const generatedFilePath = `${path.join(filePathData.destination, filePathData.name)}.py`;
-        const fileContent = generatePython(module, fileName, opts.return ?? false);
-        if (fileContent !== 'error') {
-            fs.writeFileSync(generatedFilePath, fileContent);
-            console.log(chalk.green(`Python code generated successfully: ${generatedFilePath}`));
-        } else {
-            console.log(chalk.red('Python code generation failed!'));
-        }
     }
 };
 
