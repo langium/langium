@@ -1,4 +1,4 @@
-package examples.arithmetics.llvm;
+package examples.arithmetics.llvm.fibonacci;
 
 public class Fibonacci {
 
@@ -14,4 +14,3 @@ public class Fibonacci {
         System.exit(fib(40) % 256);
     }
 }
-
