@@ -94,7 +94,8 @@ export const StatemachineGrammar = (): Grammar => loadedStatemachineGrammar ?? (
               "type": {
                 "$ref": "#/rules@3"
               },
-              "deprecatedSyntax": false
+              "deprecatedSyntax": false,
+              "isMulti": false
             }
           },
           {
@@ -204,7 +205,8 @@ export const StatemachineGrammar = (): Grammar => loadedStatemachineGrammar ?? (
                   "type": {
                     "$ref": "#/rules@2"
                   },
-                  "deprecatedSyntax": false
+                  "deprecatedSyntax": false,
+                  "isMulti": false
                 },
                 "cardinality": "+"
               },
@@ -256,7 +258,8 @@ export const StatemachineGrammar = (): Grammar => loadedStatemachineGrammar ?? (
               "type": {
                 "$ref": "#/rules@1"
               },
-              "deprecatedSyntax": false
+              "deprecatedSyntax": false,
+              "isMulti": false
             }
           },
           {
@@ -272,7 +275,8 @@ export const StatemachineGrammar = (): Grammar => loadedStatemachineGrammar ?? (
               "type": {
                 "$ref": "#/rules@3"
               },
-              "deprecatedSyntax": false
+              "deprecatedSyntax": false,
+              "isMulti": false
             }
           }
         ]

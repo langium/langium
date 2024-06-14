@@ -29,6 +29,7 @@ export type PropertyType =
 
 export interface ReferenceType {
     referenceType: PropertyType
+    mode: 'single' | 'multi' | false
 }
 
 export function isReferenceType(propertyType: PropertyType): propertyType is ReferenceType {
@@ -354,7 +355,7 @@ function isInterfaceAssignable(from: InterfaceType, to: InterfaceType, visited: 
 
 function propertyTypeToKeyString(type: PropertyType): string {
     if (isReferenceType(type)) {
-        return `@(${propertyTypeToKeyString(type.referenceType)})}`;
+        return `@(${propertyTypeToKeyString(type.referenceType)})${type.mode === 'multi' ? '*' : ''}`;
     } else if (isArrayType(type)) {
         return type.elementType ? `(${propertyTypeToKeyString(type.elementType)})[]` : 'unknown[]';
     } else if (isPropertyUnion(type)) {
@@ -379,7 +380,7 @@ export function propertyTypeToString(type?: PropertyType, mode: 'AstType' | 'Dec
     }
     if (isReferenceType(type)) {
         const refType = propertyTypeToString(type.referenceType, mode);
-        return mode === 'AstType' ? `Reference<${refType}>` : `@${typeParenthesis(type.referenceType, refType)}`;
+        return mode === 'AstType' ? `${type.mode === 'multi' ? 'Multi' : ''}Reference<${refType}>` : `@${typeParenthesis(type.referenceType, refType)}${type.mode === 'multi' ? '*' : ''}`;
     } else if (isArrayType(type)) {
         const arrayType = propertyTypeToString(type.elementType, mode);
         return mode === 'AstType' ? `Array<${arrayType}>` : `${type.elementType ? typeParenthesis(type.elementType, arrayType) : 'unknown'}[]`;

@@ -3,6 +3,7 @@
  * This program and the accompanying materials are made available under the
  * terms of the MIT License, which is available in the project root.
  ******************************************************************************/
+
 import type { Grammar, LangiumCoreServices } from 'langium';
 import { type Generated, expandToNode, joinToNode, toString } from 'langium/generate';
 import type { AstTypes, Property, PropertyDefaultValue } from 'langium/grammar';
@@ -14,14 +15,14 @@ import { collectTerminalRegexps } from './langium-util.js';
 
 export function generateAst(services: LangiumCoreServices, grammars: Grammar[], config: LangiumConfig): string {
     const astTypes = collectAst(grammars, services.shared.workspace.LangiumDocuments);
-    const crossRef = grammars.some(grammar => hasCrossReferences(grammar));
+    const crossRef = getCrossReferenceTypes(grammars);
     const importFrom = config.langiumInternal ? `../../syntax-tree${config.importExtension}` : 'langium';
     /* eslint-disable @typescript-eslint/indent */
     const fileNode = expandToNode`
         ${generatedHeader}
 
         /* eslint-disable */
-        import type { AstNode${crossRef ? ', Reference' : ''}, ReferenceInfo, TypeMetaData } from '${importFrom}';
+        import type { AstNode${crossRef.single ? ', Reference' : ''}${crossRef.multi ? ', MultiReference' : ''}, ReferenceInfo, TypeMetaData } from '${importFrom}';
         import { AbstractAstReflection } from '${importFrom}';
 
         ${generateTerminalConstants(grammars, config)}
@@ -37,8 +38,13 @@ export function generateAst(services: LangiumCoreServices, grammars: Grammar[], 
     /* eslint-enable @typescript-eslint/indent */
 }
 
-function hasCrossReferences(grammar: Grammar): boolean {
-    return Boolean(AstUtils.streamAllContents(grammar).find(GrammarAST.isCrossReference));
+function getCrossReferenceTypes(grammars: Grammar[]): { single: boolean, multi: boolean } {
+    const allCrossReferences = grammars.flatMap(grammar => AstUtils.streamAllContents(grammar).filter(GrammarAST.isCrossReference).toArray());
+    const multiCrossReferences = allCrossReferences.filter(e => e.isMulti);
+    return {
+        single: multiCrossReferences.length < allCrossReferences.length,
+        multi: multiCrossReferences.length > 0
+    };
 }
 
 function generateAstReflection(config: LangiumConfig, astTypes: AstTypes): Generated {
