@@ -55,20 +55,20 @@ export class CstNodeBuilder {
         }
     }
 
-    construct(item: { $type: string | symbol | undefined, $cstNode: CstNode }): void {
+    construct(item: { $type: string | symbol | undefined }): CstNode {
         const current: CstNode = this.current;
         // The specified item could be a datatype ($type is symbol) or a fragment ($type is undefined)
         // Only if the $type is a string, we actually assign the element
         if (typeof item.$type === 'string') {
             this.current.astNode = <AstNode>item;
         }
-        item.$cstNode = current;
         const node = this.nodeStack.pop();
         // Empty composite nodes are not valid
         // Simply remove the node from the tree
         if (node?.content.length === 0) {
             this.removeNode(node);
         }
+        return current;
     }
 
     addHiddenTokens(hiddenTokens: IToken[]): void {
