@@ -10,7 +10,7 @@ import type { AbstractElement, Action, Assignment, ParserRule } from '../languag
 import type { Linker } from '../references/linker.js';
 import type { LangiumCoreServices } from '../services.js';
 import type { AstNode, AstReflection, CompositeCstNode, CstNode } from '../syntax-tree.js';
-import type { Lexer } from './lexer.js';
+import type { Lexer, LexerResult } from './lexer.js';
 import type { IParserConfig } from './parser-config.js';
 import type { ValueConverter } from './value-converter.js';
 import { defaultParserErrorProvider, EmbeddedActionsParser, LLkLookaheadStrategy } from 'chevrotain';
@@ -21,6 +21,7 @@ import { assignMandatoryProperties, getContainerOfType, linkContentToContainer }
 import { CstNodeBuilder } from './cst-node-builder.js';
 import type { LexingReport } from './token-builder.js';
 import { toDocumentSegment } from '../utils/cst-utils.js';
+import type { CommentProvider } from '../documentation/comment-provider.js';
 
 export type ParseResult<T = AstNode> = {
     value: T,
@@ -123,6 +124,7 @@ const withRuleSuffix = (name: string): string => name.endsWith(ruleSuffix) ? nam
 export abstract class AbstractLangiumParser implements BaseParser {
 
     protected readonly lexer: Lexer;
+    protected readonly commentProvider: CommentProvider;
     protected readonly wrapper: ChevrotainWrapper;
     protected _unorderedGroups: Map<string, boolean[]> = new Map<string, boolean[]>();
 
@@ -138,6 +140,7 @@ export abstract class AbstractLangiumParser implements BaseParser {
             skipValidations: production,
             errorMessageProvider: services.parser.ParserErrorMessageProvider
         });
+        this.commentProvider = services.documentation.CommentProvider;
     }
 
     alternatives(idx: number, choices: Array<IOrAlt<any>>): void {
@@ -197,6 +200,7 @@ export class LangiumParser extends AbstractLangiumParser {
     private readonly converter: ValueConverter;
     private readonly astReflection: AstReflection;
     private readonly nodeBuilder = new CstNodeBuilder();
+    private lexerResult?: LexerResult;
     private stack: any[] = [];
     private assignmentMap = new Map<AbstractElement, AssignmentElement | undefined>();
     private currentMode: CstParserMode = CstParserMode.Retain;
@@ -236,17 +240,15 @@ export class LangiumParser extends AbstractLangiumParser {
     parse<T extends AstNode = AstNode>(input: string, options: ParserOptions = {}): ParseResult<T> {
         this.currentMode = options.cst ?? CstParserMode.Retain;
         this.nodeBuilder.buildRootNode(input);
-        const lexerResult = this.lexer.tokenize(input);
+        const lexerResult = this.lexerResult = this.lexer.tokenize(input);
         this.wrapper.input = lexerResult.tokens;
         const ruleMethod = options.rule ? this.allRules.get(options.rule) : this.mainRule;
         if (!ruleMethod) {
             throw new Error(options.rule ? `No rule found with name '${options.rule}'` : 'No main rule available.');
         }
         const result = ruleMethod.call(this.wrapper, {});
-        if (this.currentMode === CstParserMode.Retain) {
-            this.nodeBuilder.addHiddenTokens(lexerResult.hidden);
-        }
         this.unorderedGroups.clear();
+        this.lexerResult = undefined;
         return {
             value: result,
             lexerErrors: lexerResult.errors,
@@ -277,9 +279,32 @@ export class LangiumParser extends AbstractLangiumParser {
         };
     }
 
+    private appendHiddenTokens(tokens: IToken[]): void {
+        for (const token of tokens) {
+            this.nodeBuilder.buildLeafNode(token);
+        }
+    }
+
+    private getHiddenTokens(token: IToken): IToken[] {
+        const hiddenTokens = this.lexerResult!.hidden;
+        if (!hiddenTokens.length) {
+            return [];
+        }
+        const offset = token.startOffset;
+        for (let i = 0; i < hiddenTokens.length; i++) {
+            const token = hiddenTokens[i];
+            if (token.startOffset > offset) {
+                return hiddenTokens.splice(0, i);
+            }
+        }
+        return hiddenTokens.splice(0, hiddenTokens.length);
+    }
+
     consume(idx: number, tokenType: TokenType, feature: AbstractElement): void {
         const token = this.wrapper.wrapConsume(idx, tokenType);
         if (!this.isRecording() && this.isValidToken(token)) {
+            const hiddenTokens = this.getHiddenTokens(token);
+            this.appendHiddenTokens(hiddenTokens);
             const leafNode = this.nodeBuilder.buildLeafNode(token, feature);
             const { assignment, isCrossRef } = this.getAssignment(feature);
             const current = this.current;
@@ -374,9 +399,12 @@ export class LangiumParser extends AbstractLangiumParser {
         } else {
             assignMandatoryProperties(this.astReflection, obj);
         }
+        obj.$cstNode = cstNode;
+        delete obj.$segments.comment;
+        obj.$segments.comment = this.commentProvider.getComment(obj);
         obj.$segments.full = toDocumentSegment(cstNode);
-        if (this.currentMode === CstParserMode.Retain) {
-            obj.$cstNode = cstNode;
+        if (this.currentMode === CstParserMode.Discard) {
+            obj.$cstNode = undefined;
         }
         return [obj, cstNode];
     }

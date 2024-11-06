@@ -45,6 +45,7 @@ export type Properties<N extends AstNode> = SpecificNodeProperties<N> extends ne
 
 export interface AstNodeSegments {
     readonly full: DocumentSegment;
+    readonly comment?: string;
     readonly properties: Record<string, DocumentSegment[]>;
 }
 
@@ -240,9 +241,9 @@ export interface CstNode extends DocumentSegment {
     /** The root CST node */
     readonly root: RootCstNode;
     /** The grammar element from which this node was parsed */
-    readonly grammarSource: AbstractElement;
+    readonly grammarSource?: AbstractElement;
     /** @deprecated use `grammarSource` instead. */
-    readonly feature: AbstractElement;
+    readonly feature?: AbstractElement;
     /** The AST node created from this CST node */
     readonly astNode: AstNode;
     /** @deprecated use `astNode` instead. */

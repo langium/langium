@@ -37,8 +37,8 @@ export class CstNodeBuilder {
         return compositeNode;
     }
 
-    buildLeafNode(token: IToken, feature: AbstractElement): LeafCstNode {
-        const leafNode = new LeafCstNodeImpl(token.startOffset, token.image.length, tokenToRange(token), token.tokenType, false);
+    buildLeafNode(token: IToken, feature?: AbstractElement): LeafCstNode {
+        const leafNode = new LeafCstNodeImpl(token.startOffset, token.image.length, tokenToRange(token), token.tokenType, !feature);
         leafNode.grammarSource = feature;
         leafNode.root = this.rootNode;
         this.current.content.push(leafNode);
@@ -107,7 +107,7 @@ export abstract class AbstractCstNode implements CstNode {
     abstract get range(): Range;
 
     container?: CompositeCstNode;
-    grammarSource: AbstractElement;
+    grammarSource?: AbstractElement;
     root: RootCstNode;
     private _astNode?: AstNode;
 
@@ -117,7 +117,7 @@ export abstract class AbstractCstNode implements CstNode {
     }
 
     /** @deprecated use `grammarSource` instead. */
-    get feature(): AbstractElement {
+    get feature(): AbstractElement | undefined {
         return this.grammarSource;
     }
 
