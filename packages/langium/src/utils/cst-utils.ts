@@ -6,11 +6,12 @@
 
 import type { IToken } from '@chevrotain/types';
 import type { Range } from 'vscode-languageserver-types';
-import type { CstNode, CompositeCstNode, LeafCstNode } from '../syntax-tree.js';
+import type { CstNode, CompositeCstNode, LeafCstNode, AstNode, Mutable, Reference } from '../syntax-tree.js';
 import type { DocumentSegment } from '../workspace/documents.js';
 import type { Stream, TreeStream } from './stream.js';
-import { isCompositeCstNode, isLeafCstNode, isRootCstNode } from '../syntax-tree.js';
+import { isCompositeCstNode, isLeafCstNode } from '../syntax-tree.js';
 import { TreeStreamImpl } from './stream.js';
+import { streamAst, streamReferences } from './ast-utils.js';
 
 /**
  * Create a stream of all CST nodes that are directly and indirectly contained in the given root node,
@@ -134,20 +135,24 @@ export function findDeclarationNodeAtOffset(cstNode: CstNode | undefined, offset
 }
 
 export function findCommentNode(cstNode: CstNode | undefined, commentNames: string[]): CstNode | undefined {
-    if (cstNode) {
-        const previous = getPreviousNode(cstNode, true);
-        if (previous && isCommentNode(previous, commentNames)) {
-            return previous;
+    if (isCompositeCstNode(cstNode)) {
+        const firstChild = cstNode.content[0];
+        if (isCompositeCstNode(firstChild)) {
+            return findCommentNode(firstChild, commentNames);
         }
-        if (isRootCstNode(cstNode)) {
-            // Go from the first non-hidden node through all nodes in reverse order
-            // We do this to find the comment node which directly precedes the root node
-            const endIndex = cstNode.content.findIndex(e => !e.hidden);
-            for (let i = endIndex - 1; i >= 0; i--) {
-                const child = cstNode.content[i];
-                if (isCommentNode(child, commentNames)) {
-                    return child;
-                }
+        // Find the first non-hidden child
+        let index = -1;
+        for (const child of cstNode.content) {
+            if (!child.hidden) {
+                break;
+            }
+            index++;
+        }
+        // Search backwards for a comment node
+        for (let i = index; i >= 0; i--) {
+            const child = cstNode.content[i];
+            if (isCommentNode(child, commentNames)) {
+                return child;
             }
         }
     }
@@ -338,4 +343,13 @@ function getParentChain(node: CstNode): ParentLink[] {
 interface ParentLink {
     parent: CompositeCstNode
     index: number
+}
+
+export function discardCst(node: AstNode): void {
+    streamAst(node).forEach(n => {
+        (n as Mutable<AstNode>).$cstNode = undefined;
+        streamReferences(n).forEach(r => {
+            (r.reference as Mutable<Reference<AstNode>>).$refNode = undefined;
+        });
+    });
 }

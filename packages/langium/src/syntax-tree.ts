@@ -23,6 +23,7 @@ export interface AstNode {
     readonly $containerIndex?: number;
     /** The Concrete Syntax Tree (CST) node of the text range from which this node was parsed. */
     readonly $cstNode?: CstNode;
+    readonly $segments?: AstNodeSegments;
     /** The document containing the AST; only the root node has a direct reference to the document. */
     readonly $document?: LangiumDocument;
 }
@@ -41,6 +42,12 @@ type SpecificNodeProperties<N extends AstNode> = keyof Omit<N, keyof AstNode | n
  * The property names of a given AST node type.
  */
 export type Properties<N extends AstNode> = SpecificNodeProperties<N> extends never ? string : SpecificNodeProperties<N>
+
+export interface AstNodeSegments {
+    readonly full: DocumentSegment;
+    readonly comment?: string;
+    readonly properties: Record<string, DocumentSegment[]>;
+}
 
 /**
  * A cross-reference in the AST. Cross-references may or may not be successfully resolved.
@@ -234,9 +241,9 @@ export interface CstNode extends DocumentSegment {
     /** The root CST node */
     readonly root: RootCstNode;
     /** The grammar element from which this node was parsed */
-    readonly grammarSource: AbstractElement;
+    readonly grammarSource?: AbstractElement;
     /** @deprecated use `grammarSource` instead. */
-    readonly feature: AbstractElement;
+    readonly feature?: AbstractElement;
     /** The AST node created from this CST node */
     readonly astNode: AstNode;
     /** @deprecated use `astNode` instead. */

@@ -37,8 +37,8 @@ export class CstNodeBuilder {
         return compositeNode;
     }
 
-    buildLeafNode(token: IToken, feature: AbstractElement): LeafCstNode {
-        const leafNode = new LeafCstNodeImpl(token.startOffset, token.image.length, tokenToRange(token), token.tokenType, false);
+    buildLeafNode(token: IToken, feature?: AbstractElement): LeafCstNode {
+        const leafNode = new LeafCstNodeImpl(token.startOffset, token.image.length, tokenToRange(token), token.tokenType, !feature);
         leafNode.grammarSource = feature;
         leafNode.root = this.rootNode;
         this.current.content.push(leafNode);
@@ -55,20 +55,20 @@ export class CstNodeBuilder {
         }
     }
 
-    construct(item: { $type: string | symbol | undefined, $cstNode: CstNode }): void {
+    construct(item: { $type: string | symbol | undefined }): CstNode {
         const current: CstNode = this.current;
         // The specified item could be a datatype ($type is symbol) or a fragment ($type is undefined)
         // Only if the $type is a string, we actually assign the element
         if (typeof item.$type === 'string') {
             this.current.astNode = <AstNode>item;
         }
-        item.$cstNode = current;
         const node = this.nodeStack.pop();
         // Empty composite nodes are not valid
         // Simply remove the node from the tree
         if (node?.content.length === 0) {
             this.removeNode(node);
         }
+        return current;
     }
 
     addHiddenTokens(hiddenTokens: IToken[]): void {
@@ -107,7 +107,7 @@ export abstract class AbstractCstNode implements CstNode {
     abstract get range(): Range;
 
     container?: CompositeCstNode;
-    grammarSource: AbstractElement;
+    grammarSource?: AbstractElement;
     root: RootCstNode;
     private _astNode?: AstNode;
 
@@ -117,7 +117,7 @@ export abstract class AbstractCstNode implements CstNode {
     }
 
     /** @deprecated use `grammarSource` instead. */
-    get feature(): AbstractElement {
+    get feature(): AbstractElement | undefined {
         return this.grammarSource;
     }
 

@@ -296,9 +296,12 @@ export class DefaultHydrator implements Hydrator {
         return this.lexer.definition[name];
     }
 
-    protected getGrammarElementId(node: AbstractElement): number | undefined {
+    protected getGrammarElementId(node: AbstractElement | undefined): number | undefined {
         if (this.grammarElementIdMap.size === 0) {
             this.createGrammarElementIdMap();
+        }
+        if (!node) {
+            return undefined;
         }
         return this.grammarElementIdMap.get(node);
     }
